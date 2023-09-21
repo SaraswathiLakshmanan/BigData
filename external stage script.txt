@@ -1,0 +1,43 @@
+create or replace file format sales.public.my_csv_format
+type = csv
+field_delimiter = ','
+skip_header = 1
+null_if = ('NULL', 'null')
+empty_field_as_null = true;
+
+
+create or replace storage integration s3_int2
+type=external_stage
+storage_provider=s3
+enabled=true storage_aws_role_arn='arn:aws:iam::246628769375:role/newproductrole'
+storage_allowed_locations=('s3://bucketproductmanas/');
+
+
+create stage my_s3_stage3
+storage_integration=s3_int2
+url='s3://bucketproductmanas/titanic_data.csv'
+file_format=my_csv_format;
+
+
+arn:aws:iam::548099410567:user/externalstages/ci1t900000
+
+GL53733_SFCRole=2_F4vCPbqtpXe/0GwlK2t8G7wsOcs=
+
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::548099410567:user/externalstages/ci1t900000"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "GL53733_SFCRole=2_F4vCPbqtpXe/0GwlK2t8G7wsOcs="
+                }
+            }
+        }
+    ]
+}
