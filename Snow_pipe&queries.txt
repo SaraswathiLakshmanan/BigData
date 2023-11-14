@@ -1,0 +1,92 @@
+DROP TABLE IF EXISTS OLYMPICS_HISTORY;
+CREATE TABLE IF NOT EXISTS OLYMPICS_HISTORY
+(
+    id          INT,
+    name        VARCHAR,
+    sex         VARCHAR,
+    age         VARCHAR,
+    height      VARCHAR,
+    weight      VARCHAR,
+    team        VARCHAR,
+    noc         VARCHAR,
+    games       VARCHAR,
+    year        INT,
+    season      VARCHAR,
+    city        VARCHAR,
+    sport       VARCHAR,
+    event       VARCHAR,
+    medal       VARCHAR
+);
+
+DROP TABLE IF EXISTS OLYMPICS_HISTORY_NOC_REGIONS;
+CREATE TABLE IF NOT EXISTS OLYMPICS_HISTORY_NOC_REGIONS
+(
+    noc         VARCHAR,
+    region      VARCHAR
+);
+
+create or replace file format olympics_DE_project.public.my_csv_format
+type = csv
+field_delimiter = ','
+skip_header = 1
+null_if=('NULL','null','NA')
+field_optionally_enclosed_by='"'
+empty_field_as_null = true;
+
+create or replace storage integration azure_int
+type=external_stage
+storage_provider=AZURE
+enabled = true
+azure_tenant_id='ef9be3ec-bba8-4232-b8b2-a3faf8c2df4b'
+storage_allowed_locations = ('azure://olympicdatasource.blob.core.windows.net/olympicdata/noc_regions.csv');
+
+describe storage integration azure_int;
+
+
+create or replace stage olympics_de_project.public.azure_stage
+storage_integration=azure_int
+url='azure://olympicdatasource.blob.core.windows.net/olympicdata/noc_regions.csv'
+file_format=my_csv_format;
+
+select $1,$2 from @olympics_de_project.public.azure_stage;
+
+
+create or replace pipe olympics_de_project.public.azure_pipe
+auto_ingest=true as 
+copy into OLYMPICS_HISTORY_NOC_REGIONS
+from @azure_stage;
+
+
+-- Q11 Fetch the top 5 athletes who have won the most gold medals.
+select name,count(iff(medal='Gold',1,null)) as Total_gold_medals from OLYMPICS_HISTORY 
+group by name order by Total_gold_medals desc limit 5;
+
+-- Q12- Fetch the top 5 athletes who have won the most medals (gold/silver/bronze).
+select name,count(medal) as Total_gold_medals from OLYMPICS_HISTORY 
+group by name order by Total_gold_medals desc limit 5;
+
+
+-- Q13 Fetch the top 5 most successful countries in olympics. Success is defined by no of medals won.
+select region as countries, count(medal) as medal_count from OLYMPICS_HISTORY 
+join OLYMPICS_HISTORY_NOC_REGIONS using (noc) group by countries order by medal_count desc limit 5;
+
+
+create view view1 as(
+select region, games,
+count(iff(medal='Gold',1,null)) as Gold_medals,
+count(iff(medal='Silver',1,null)) as Silver_medals,
+count(iff(medal='Bronze',1,null)) as Bronze_medals
+from OLYMPICS_HISTORY join OLYMPICS_HISTORY_NOC_REGIONS using(noc)
+group by region, games order by Gold_medals desc, Silver_medals desc,Bronze_medals desc);
+
+
+--Q14 List down total gold, silver and broze medals won by each country.
+select region, sum(Gold_medals) as Gold_medals, 
+sum(Silver_medals) as Silver_medals, 
+sum(Bronze_medals) as BRONZE_MEDALS from View1
+group by region order by Gold_medals desc, Silver_medals desc,Bronze_medals desc;
+
+
+--Q15 List down total gold, silver and broze medals won by each country corresponding to each olympic games.
+select * from view1;
+
